@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="ja">
+    <head>
+        <meta charset="UTF-8" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <title>ビーコン測量シュレーター</title>
+    </head>
+    <body>
+        <h1>ビーコン測量シュレーター</h1>
+        ビーコンA, X座標
+        <input
+            type="number"
+            id="beaconAX"
+            name="tentacles"
+            min="1"
+            max="1000"
+            step="10"
+            value="100"
+        />
+        <br />
+        ビーコンA, Y座標
+        <input
+            type="number"
+            id="beaconAY"
+            name="tentacles"
+            min="1"
+            max="1000"
+            step="10"
+            value="100"
+        />
+        <br />
+        ビーコンB, X座標
+        <input
+            type="number"
+            id="beaconBX"
+            name="tentacles"
+            min="1"
+            max="1000"
+            step="10"
+            value="500"
+        />
+        <br />
+        ビーコンB, Y座標
+        <input
+            type="number"
+            id="beaconBY"
+            name="tentacles"
+            min="1"
+            max="1000"
+            step="10"
+            value="100"
+        />
+        <br />
+        ビーコンC, X座標
+        <input
+            type="number"
+            id="beaconCX"
+            name="tentacles"
+            min="1"
+            max="1000"
+            step="10"
+            value="100"
+        />
+        <br />
+        ビーコンC, Y座標
+        <input
+            type="number"
+            id="beaconCY"
+            name="tentacles"
+            min="1"
+            max="1000"
+            step="10"
+            value="500"
+        />
+        <br />
+        ロボット, X座標
+        <input
+            type="number"
+            id="robotx"
+            name="tentacles"
+            min="1"
+            max="1000"
+            step="10"
+            value="500"
+        />
+        <br />
+        ロボット, Y座標
+        <input
+            type="number"
+            id="roboty"
+            name="tentacles"
+            min="1"
+            max="1000"
+            step="10"
+            value="500"
+        />
+        <br />
+        <button id="submit" type="button">これで計算</button>
+        <br />
+        ==========</h>
+        <br />
+        <p style="color: red">[ 入力 ] ロボットが観測するビーコンとの距離</p>
+        A: <span style="color: red" id="distanceA"></span> B:
+        <span style="color: red" id="distanceB"></span> C:
+        <span style="color: red" id="distanceC"></span>
+        <br />
+        👇📠👇
+        <br />
+        <p style="color: red">[ 出力 ] 算出されたロボットの座標</p>
+        X: <span style="color: red" id="robotX"></span> Y:
+        <span style="color: red" id="robotY"></span>
+        <br />
+        <p style="color: red"><span id="isTrueResult"></span></p>
+        <br />
+        <canvas
+            id="myCanvas"
+            width="1000"
+            height="1000"
+            style="border: 1px solid #000000"
+        ></canvas>
+        <script>
+            const submit = document.getElementById("submit");
+            submit.addEventListener("click", submitFunc);
+            function submitFunc() {
+                const beaconA = {
+                    x: document.getElementById("beaconAX").value,
+                    y: document.getElementById("beaconAY").value,
+                };
+                const beaconB = {
+                    x: document.getElementById("beaconBX").value,
+                    y: document.getElementById("beaconBY").value,
+                };
+                const beaconC = {
+                    x: document.getElementById("beaconCX").value,
+                    y: document.getElementById("beaconCY").value,
+                };
+                const robot = {
+                    x: document.getElementById("robotx").value,
+                    y: document.getElementById("roboty").value,
+                };
+                const canvas = document.getElementById("myCanvas");
+                const context = canvas.getContext("2d");
+
+                //ここに距離
+                const robotBeaconADistanceX = robot.x - beaconA.x;
+                const robotBeaconADistanceY = robot.y - beaconA.y;
+                const robotBeaconADist = Math.sqrt(
+                    robotBeaconADistanceX ** 2 + robotBeaconADistanceY ** 2,
+                );
+
+                const robotBeaconBDistanceX = robot.x - beaconB.x;
+                const robotBeaconBDistanceY = robot.y - beaconB.y;
+                const robotBeaconBDist = Math.sqrt(
+                    robotBeaconBDistanceX ** 2 + robotBeaconBDistanceY ** 2,
+                );
+
+                const robotBeaconCDistanceX = robot.x - beaconC.x;
+                const robotBeaconCDistanceY = robot.y - beaconC.y;
+                const robotBeaconCDist = Math.sqrt(
+                    robotBeaconCDistanceX ** 2 + robotBeaconCDistanceY ** 2,
+                );
+
+                document.getElementById("distanceA").innerHTML =
+                    robotBeaconADist;
+                document.getElementById("distanceB").innerHTML =
+                    robotBeaconBDist;
+                document.getElementById("distanceC").innerHTML =
+                    robotBeaconCDist;
+
+                const result = calc(
+                    beaconA,
+                    beaconB,
+                    beaconC,
+                    robotBeaconADist,
+                    robotBeaconBDist,
+                    robotBeaconCDist,
+                );
+
+                if (
+                    Math.abs(result.x - robot.x) < 1 &&
+                    Math.abs(result.y - robot.y) < 1
+                ) {
+                    document.getElementById("isTrueResult").innerHTML =
+                        "OK! 正解の座標と計算した座標が一致しました.";
+                } else {
+                    document.getElementById("isTrueResult").innerHTML =
+                        "ERROR! 正解の座標と計算した座標が一致しません.";
+                }
+
+                if (result.error) {
+                    document.getElementById("isTrueResult").innerHTML =
+                        result.error;
+                } else {
+                    document.getElementById("robotX").innerHTML = result.x;
+                    document.getElementById("robotY").innerHTML = result.y;
+                }
+
+                context.beginPath();
+                context.arc(beaconA.x, beaconA.y, 10, 0, 2 * Math.PI, false);
+                context.fillStyle = "red";
+                context.fill();
+                context.stroke();
+                context.beginPath();
+                context.arc(
+                    beaconA.x,
+                    beaconA.y,
+                    robotBeaconADist,
+                    0,
+                    2 * Math.PI,
+                    false,
+                );
+                context.strokeStyle = "red";
+                context.stroke();
+
+                context.beginPath();
+                context.strokeStyle = "black";
+                context.fillStyle = "blue";
+                context.arc(beaconB.x, beaconB.y, 10, 0, 2 * Math.PI, false);
+                context.fill();
+                context.stroke();
+                context.beginPath();
+                context.arc(
+                    beaconB.x,
+                    beaconB.y,
+                    robotBeaconBDist,
+                    0,
+                    2 * Math.PI,
+                    false,
+                );
+                context.strokeStyle = "blue";
+                context.stroke();
+
+                context.beginPath();
+                context.strokeStyle = "black";
+                context.fillStyle = "green";
+                context.arc(beaconC.x, beaconC.y, 10, 0, 2 * Math.PI, false);
+                context.fill();
+                context.stroke();
+                context.beginPath();
+                context.arc(
+                    beaconC.x,
+                    beaconC.y,
+                    robotBeaconCDist,
+                    0,
+                    2 * Math.PI,
+                    false,
+                );
+                context.strokeStyle = "green";
+                context.stroke();
+
+                context.beginPath();
+                context.fillStyle = "black";
+                context.fillRect(robot.x - 15, robot.y - 15, 30, 30);
+                context.fill();
+                context.stroke();
+            }
+
+            function calc(
+                pointA,
+                pointB,
+                pointC,
+                distanceA,
+                distanceB,
+                distanceC,
+            ) {
+                // 点A, B, C の座標入力
+                // A-D, B-D, C-D の距離入力
+                // 点D の座標出力
+                const Ax = pointA.x;
+                const Ay = pointA.y;
+                const Bx = pointB.x;
+                const By = pointB.y;
+                const Cx = pointC.x;
+                const Cy = pointC.y;
+                const a = distanceA;
+                const b = distanceB;
+                const c = distanceC;
+
+                const E1 = 2 * (Ax - Bx);
+                const F1 = 2 * (Ay - By);
+                const G1 =
+                    a * a - b * b + Bx * Bx - Ax * Ax + By * By - Ay * Ay;
+                const E2 = 2 * (Ax - Cx);
+                const F2 = 2 * (Ay - Cy);
+                const G2 =
+                    a * a - c * c + Cx * Cx - Ax * Ax + Cy * Cy - Ay * Ay;
+                const denominator = E1 * F2 - E2 * F1;
+                if (Math.abs(denominator) < 1e-6) {
+                    //ほぼゼロやったら
+                    return {
+                        x: NaN,
+                        y: NaN,
+                        error: "ERROR ビーコン配置が不正,車座標が定まらない.",
+                    };
+                }
+                const Dx = (G1 * F2 - G2 * F1) / denominator;
+                const Dy = (E1 * G2 - E2 * G1) / denominator;
+                return { x: Dx * -1, y: Dy * -1 };
+            }
+        </script>
+    </body>
+</html>
