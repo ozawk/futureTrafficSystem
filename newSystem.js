@@ -13,32 +13,95 @@ const sections = {
     // NOTE オーバーシュート対策で浅く曲がる関係でθ=45°じゃないから注意
 
     0: {
-        LU: { x: 390, y: 787 },
-        RU: { x: 459, y: 787 },
-        LD: { x: 390, y: 863 },
-        RD: { x: 459, y: 863 },
+        LU: { x: 651, y: 712 },
+        RU: { x: 689, y: 712 },
+        LD: { x: 651, y: 772 },
+        RD: { x: 689, y: 772 },
         direction: "UP",
-        center: { x: 425, y: NaN },
-        distance: 76,
-    },
+        center: { x: 670, y: NaN },
+        distance: 60,
+    }, //はじまりのセクション
     1: {
-        LU: { x: 390, y: 710 },
-        RU: { x: 459, y: 710 },
-        LD: { x: 390, y: 787 },
-        RD: { x: 459, y: 787 },
-        direction: "RIGHTUP",
-        center: { x: 425, y: 787 },
-        distance: 38.6, //
-    },
+        LU: { x: 651, y: 593 },
+        RU: { x: 689, y: 593 },
+        LD: { x: 651, y: 712 },
+        RD: { x: 689, y: 712 },
+        direction: "UP",
+        center: { x: 670, y: NaN },
+        distance: 119,
+    }, //分岐開始~直線終了までのセクション
     2: {
-        LU: { x: 459, y: 710 },
-        RU: { x: 590, y: 710 },
-        LD: { x: 459, y: 787 },
-        RD: { x: 590, y: 787 },
+        LU: { x: 651, y: 520 },
+        RU: { x: 731, y: 520 },
+        LD: { x: 651, y: 593 },
+        RD: { x: 731, y: 593 },
+        direction: "RIGHTUP",
+        center: { x: 670, y: 593 },
+        distance: 70.8,
+    }, //左上の右折セクション
+    3: {
+        LU: { x: 731, y: 520 },
+        RU: { x: 790, y: 520 },
+        LD: { x: 731, y: 554 },
+        RD: { x: 790, y: 554 },
         direction: "RIGHT",
-        center: { x: NaN, y: 749 },
-        distance: 81,
-    },
+        center: { x: NaN, y: 537 },
+        distance: 59,
+    }, //上の右方向に直進セクション
+    4: {
+        LU: { x: 790, y: 520 },
+        RU: { x: 865, y: 520 },
+        LD: { x: 790, y: 596 },
+        RD: { x: 865, y: 596 },
+        direction: "RIGHTDN",
+        center: { x: 790, y: 537 },
+        distance: 69.9,
+    }, //右上の右折セクション
+    5: {
+        LU: { x: 831, y: 596 },
+        RU: { x: 865, y: 596 },
+        LD: { x: 831, y: 715 },
+        RD: { x: 865, y: 715 },
+        direction: "DOWN",
+        center: { x: 848, y: NaN },
+        distance: 119,
+    }, //右折終了~合流終了までのセクション
+    6: {
+        LU: { x: 831, y: 715 },
+        RU: { x: 865, y: 715 },
+        LD: { x: 831, y: 772 },
+        RD: { x: 865, y: 772 },
+        direction: "DOWN",
+        center: { x: 848, y: NaN },
+        distance: 57,
+    }, //右下右折までの直線セクション
+    7: {
+        LU: { x: 791, y: 772 },
+        RU: { x: 865, y: 772 },
+        LD: { x: 791, y: 849 },
+        RD: { x: 865, y: 849 },
+        direction: "LEFTDN",
+        center: { x: 848, y: 772 },
+        distance: 68.8,
+    }, //右下右折セクション
+    8: {
+        LU: { x: 731, y: 812 },
+        RU: { x: 791, y: 812 },
+        LD: { x: 731, y: 849 },
+        RD: { x: 791, y: 849 },
+        direction: "LEFT",
+        center: { x: NaN, y: 830 },
+        distance: 60,
+    }, //下の左方向に直進セクション
+    9: {
+        LU: { x: 651, y: 772 },
+        RU: { x: 731, y: 772 },
+        LD: { x: 651, y: 849 },
+        RD: { x: 731, y: 849 },
+        direction: "LEFTUP",
+        center: { x: 731, y: 830 },
+        distance: 70.5,
+    }, //左下の右折セクション
 };
 
 //今の走行距離
@@ -125,6 +188,89 @@ function move(carNum, nowXYA) {
             const nextXY = [
                 nowXYA[0] + nowToNextIncrement,
                 sections[nowSection].center.y,
+            ];
+            motorCtrl = ctrlMotor(
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+                30,
+            );
+        } else if (sections[nowSection].direction === "RIGHTDN") {
+            //進行方向RIGHTDNであれば
+            //セクション内走行距離
+            const nextXY = [
+                nowXYA[0] + nowToNextIncrement * 0.5,
+                nowXYA[1] + nowToNextIncrement,
+            ];
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((nowXYA[1] - sections[nowSection].center.y) /
+                    (sections[nowSection].center.y -
+                        sections[nowSection].LU.y));
+            motorCtrl = ctrlMotor(
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+                30,
+            );
+        } else if (sections[nowSection].direction === "DOWN") {
+            //進行方向DOWNであれば
+            //セクション内走行距離
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((nowXYA[1] - sections[nowSection].LU.y) /
+                    (sections[nowSection].RD.y - sections[nowSection].LU.y));
+            const nextXY = [
+                sections[nowSection].center.x,
+                nowXYA[1] + nowToNextIncrement,
+            ];
+            motorCtrl = ctrlMotor(
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+                30,
+            );
+        } else if (sections[nowSection].direction === "LEFTDN") {
+            //進行方向LEFTDNであれば
+            //セクション内走行距離
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((sections[nowSection].center.y - nowXYA[1]) /
+                    (sections[nowSection].center.y -
+                        sections[nowSection].LU.y));
+            const nextXY = [
+                nowXYA[0] - nowToNextIncrement,
+                nowXYA[1] + nowToNextIncrement * 0.5,
+            ];
+            motorCtrl = ctrlMotor(
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+                30,
+            );
+        } else if (sections[nowSection].direction === "LEFT") {
+            //進行方向LEFTであれば
+            //セクション内走行距離
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((sections[nowSection].RD.x - nowXYA[0]) /
+                    (sections[nowSection].RD.x - sections[nowSection].LD.x));
+            const nextXY = [
+                nowXYA[0] - nowToNextIncrement,
+                sections[nowSection].center.y,
+            ];
+            motorCtrl = ctrlMotor(
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+                30,
+            );
+        } else if (sections[nowSection].direction === "LEFTUP") {
+            //進行方向LEFTUPであれば
+            //セクション内走行距離
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((sections[nowSection].center.x - nowXYA[0]) /
+                    (sections[nowSection].center.x -
+                        sections[nowSection].LU.x));
+            const nextXY = [
+                nowXYA[0] - nowToNextIncrement * 0.5,
+                nowXYA[1] - nowToNextIncrement,
             ];
             motorCtrl = ctrlMotor(
                 [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
