@@ -1,6 +1,17 @@
 # futureTrafficSystem
 #### Creation and demonstration of a future transportation system to relieve traffic congestion<br>
 #### 渋滞解消を目的とした未来の交通システムの開発<br><br>
+##
+![Image](https://github.com/user-attachments/assets/a6b30e61-caad-4b04-a613-99f697ba96a9)
+![Image](https://github.com/user-attachments/assets/add5bc6a-2331-4d7a-a099-19eb12cd219d)
+![Image](https://github.com/user-attachments/assets/e5d484e6-5e52-460d-83a7-dd965588183d)
+![Image](https://github.com/user-attachments/assets/321289db-bf4b-401a-b2f4-935626b490bc)
+![Image](https://github.com/user-attachments/assets/291ddc93-4cd0-4220-9dd7-c2f211abb8e6)
+![Image](https://github.com/user-attachments/assets/8a9d24ba-77a3-4c34-86d8-95154488bddd)
+![Image](https://github.com/user-attachments/assets/a6c6c4f7-c30f-47aa-a6f5-3025ad2f438f)
+![Image](https://github.com/user-attachments/assets/978766b1-dcba-40ca-9014-1ea1cafea17d)
+![Image](https://github.com/user-attachments/assets/b5ec61ce-f83d-4801-a2f9-ecf6f3f520fd)
+
 ## Overview
 In Japan, traffic congestion results in a total annual expenditure of 3.8 billion hours.
 The annual economic loss due to traffic congestion is estimated to be as high as 12 trillion yen.
