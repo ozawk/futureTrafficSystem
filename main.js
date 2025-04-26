@@ -1,406 +1,569 @@
 import { NearScanner } from "@toio/scanner";
 
-const carsNum = 4;
-const cubes = await new NearScanner(carsNum).start();
+const sections = {
+    //セクション番号: {
+    // セクション範囲左上座標:
+    // セクション範囲右上座標:
+    // セクション範囲左下座標:
+    // セクション範囲右下座標:
+    // 車走行方向: (UP, RIGHTUP, RIGHT, RIGHTDOWN, DOWN, DOWNLEFT, LEFT, LEFTUP ),
+    // 車走行線の中心座標: (直進:X OR Y, 斜めに:セクション開始座標)
+    // 車走行線の距離:
+    // (長辺を採用する. 線がX:0,Y:10であれば10. 線がX:5,Y:10であれば11.2)
+    // NOTE オーバーシュート対策で浅く曲がる関係でθ=45°じゃないから注意
 
-const car_0 = await cubes[0].connect();
-const car_1 = await cubes[1].connect();
-const car_2 = await cubes[2].connect();
-const car_3 = await cubes[3].connect();
+    0: {
+        LU: { x: 651, y: 712 },
+        RU: { x: 689, y: 712 },
+        LD: { x: 651, y: 772 },
+        RD: { x: 689, y: 772 },
+        direction: "UP",
+        center: { x: 670, y: NaN },
+        distance: 60,
+    }, //はじまりのセクション
+    1: {
+        LU: { x: 651, y: 593 },
+        RU: { x: 703, y: 593 },
+        LD: { x: 651, y: 712 },
+        RD: { x: 703, y: 712 },
+        direction: "UP",
+        center: { x: 670, y: NaN },
+        distance: 119,
+        isBranchSection: true,
+        branch: {
+            type: "SPLIT",
+            center: { x: 670, y: 712 },
+            distance: 38,
+        },
+    }, //分岐開始~直線終了までのセクション
+    2: {
+        LU: { x: 651, y: 520 },
+        RU: { x: 731, y: 520 },
+        LD: { x: 651, y: 593 },
+        RD: { x: 731, y: 593 },
+        direction: "RIGHTUP",
+        center: { x: 670, y: 593 },
+        distance: 70.8,
+    }, //左上の右折セクション
+    3: {
+        LU: { x: 731, y: 520 },
+        RU: { x: 790, y: 520 },
+        LD: { x: 731, y: 554 },
+        RD: { x: 790, y: 554 },
+        direction: "RIGHT",
+        center: { x: NaN, y: 537 },
+        distance: 59,
+    }, //上の右方向に直進セクション
+    4: {
+        LU: { x: 790, y: 520 },
+        RU: { x: 865, y: 520 },
+        LD: { x: 790, y: 596 },
+        RD: { x: 865, y: 596 },
+        direction: "RIGHTDN",
+        center: { x: 790, y: 537 },
+        distance: 69.9,
+    }, //右上の右折セクション
+    5: {
+        LU: { x: 783, y: 596 },
+        RU: { x: 865, y: 596 },
+        LD: { x: 783, y: 696 },
+        RD: { x: 865, y: 696 },
+        direction: "DOWN",
+        center: { x: 840, y: NaN },
+        distance: 100,
+        isBranchSection: true,
+        branch: {
+            type: "MERGE",
+            center: { x: 800, y: 655 },
+            distance: 69.3,
+        },
+    }, //右折終了~合流終了までのセクション
+    6: {
+        LU: { x: 831, y: 696 },
+        RU: { x: 865, y: 696 },
+        LD: { x: 831, y: 772 },
+        RD: { x: 865, y: 772 },
+        direction: "DOWN",
+        center: { x: 848, y: NaN },
+        distance: 86,
+    }, //右下右折までの直線セクション
+    7: {
+        LU: { x: 791, y: 772 },
+        RU: { x: 865, y: 772 },
+        LD: { x: 791, y: 849 },
+        RD: { x: 865, y: 849 },
+        direction: "LEFTDN",
+        center: { x: 848, y: 772 },
+        distance: 68.8,
+    }, //右下右折セクション
+    8: {
+        LU: { x: 731, y: 812 },
+        RU: { x: 791, y: 812 },
+        LD: { x: 731, y: 849 },
+        RD: { x: 791, y: 849 },
+        direction: "LEFT",
+        center: { x: NaN, y: 830 },
+        distance: 60,
+    }, //下の左方向に直進セクション
+    9: {
+        LU: { x: 651, y: 772 },
+        RU: { x: 731, y: 772 },
+        LD: { x: 651, y: 849 },
+        RD: { x: 731, y: 849 },
+        direction: "LEFTUP",
+        center: { x: 731, y: 830 },
+        distance: 70.5,
+    }, //左下の右折セクション
+    10: {
+        LU: { x: 703, y: 593 },
+        RU: { x: 783, y: 593 },
+        LD: { x: 703, y: 712 },
+        RD: { x: 783, y: 712 },
+        direction: "LEFT",
+        center: { x: 670, y: NaN },
+        distance: 49,
+        isBranchSection: true,
+        branch: {
+            type: "LINE",
+            center: { x: NaN, y: 655 },
+            distance: 80,
+        },
+    }, //中心線の
+};
 
-//道データ
-// const totalRoadDist = 108.5;
-const origin_x = 673;
-const origin_y = 830;
-const coordinatePerCentimeter = 7.26;
+const branchIncludeSections = [1, 5, 10];
 
-const roadPointPositions = [
-    { x: 0, y: 8 },
-    { x: 0, y: 10 },
-    { x: 0, y: 12 },
-    { x: 0, y: 14 },
-    { x: 0, y: 16 },
-    { x: 0, y: 18 },
-    { x: 0, y: 20 }, //ここから分離 ここは6
-    { x: 0, y: 22 },
-    { x: 0, y: 24 },
-    { x: 0, y: 26 },
-    { x: 0, y: 28 },
-    { x: 0, y: 30 },
-    { x: 0, y: 32 }, //
-    { x: 0, y: 34 },
-    { x: 1, y: 36 }, //左上
-    { x: 3, y: 37 },
-    { x: 6, y: 39 }, //
-    { x: 10, y: 40 },
-    { x: 12, y: 40 },
-    { x: 14, y: 40 },
-    { x: 18, y: 40 }, //
-    { x: 21, y: 39 },
-    { x: 23, y: 37 }, //右上
-    { x: 24, y: 34 },
-    { x: 24, y: 30 }, //
-    { x: 24, y: 30 },
-    { x: 24, y: 28 },
-    { x: 24, y: 26 },
-    { x: 24, y: 24 },
-    { x: 24, y: 22 },
-    { x: 24, y: 20 }, //ここまで分離 ここは30
-    { x: 24, y: 18 },
-    { x: 24, y: 16 },
-    { x: 24, y: 14 },
-    { x: 24, y: 12 },
-    { x: 24, y: 10 },
-    { x: 24, y: 8 },
-    { x: 23, y: 5 },
-    { x: 22, y: 2 }, //右下
-    { x: 19, y: 1 },
-    { x: 16, y: 0 },
-    { x: 14, y: 0 },
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
-    { x: 0, y: 0 },
-    { x: 0, y: 0 }, //左下
-    { x: 0, y: 0 },
-];
+//今の走行距離
+let carsNowDistances = [0, 0, 0, 0];
+//今の周回数
+let carsNowLaps = [0, 0, 0, 0];
+//分岐する車両
+let branchCar = [true, false, false, false];
+//今の速度
+let carsNowSpeeds = [0, 0, 0, 0];
+//前回の速度
+let carsBeforeSpeeds = [0, 0, 0, 0];
+//前回走行のセクション
+let beforeSections = [0, 0, 0, 0];
+//分岐線中にいる車の分岐線中走行距離
+let carNowDistanceInBranch = 0;
 
-const separateRoadPointPositions = [
-    { x: 3, y: 24 },
-    { x: 3, y: 24 },
-    { x: 3, y: 24 },
-    { x: 5, y: 25 },
-    { x: 8, y: 25 },
-    { x: 10, y: 25 },
-    { x: 12, y: 25 },
-    { x: 14, y: 25 },
-    { x: 16, y: 25 },
-    { x: 19, y: 25 },
-    { x: 22, y: 24 },
-    { x: 22, y: 19 },
-    { x: 22, y: 16 },
-];
+const PGain = 1;
+const DGain = 0.3;
 
-let carsNowSectionNum = [0, 0, 0, 0];
-let carsSpaceDist = [0, 0, 0, 0];
-let nowSeparateCarNum = Math.floor(Math.random() * 4);
-let nowSectionNumSeparate = 0;
-let carsIsNowInSeparate = [false, false, false, false];
-let waitTimeContInSeparate = 0;
-let isGo = true;
-let isTrackCont = 0;
-let isFirstInPoint = true;
-let captureOrderBeforeSeparate = [0, 0, 0, 0];
-let carLrsD = [0, 0, 0, 0, 0, 0, 0, 0];
+let speed = 0;
 
-let carsNowPosition = [
-    [0, 0, 0],
-    [0, 0, 0],
-    [0, 0, 0],
-    [0, 0, 0],
-]; //[x,y,a]
-
-car_0.on("id:position-id", (data) => {
-    carsNowPosition[0][0] = data.x;
-    carsNowPosition[0][1] = data.y;
-    carsNowPosition[0][2] = data.angle;
-});
-car_1.on("id:position-id", (data) => {
-    carsNowPosition[1][0] = data.x;
-    carsNowPosition[1][1] = data.y;
-    carsNowPosition[1][2] = data.angle;
-});
-car_2.on("id:position-id", (data) => {
-    carsNowPosition[2][0] = data.x;
-    carsNowPosition[2][1] = data.y;
-    carsNowPosition[2][2] = data.angle;
-});
-car_3.on("id:position-id", (data) => {
-    carsNowPosition[3][0] = data.x;
-    carsNowPosition[3][1] = data.y;
-    carsNowPosition[3][2] = data.angle;
-});
-
-setInterval(() => {
-    //モーター指令サイクル
-    const data = [
-        move(
-            0,
-            carsNowPosition[0][0],
-            carsNowPosition[0][1],
-            carsNowPosition[0][2],
-        ),
-        move(
-            1,
-            carsNowPosition[1][0],
-            carsNowPosition[1][1],
-            carsNowPosition[1][2],
-        ),
-        move(
-            2,
-            carsNowPosition[2][0],
-            carsNowPosition[2][1],
-            carsNowPosition[2][2],
-        ),
-        move(
-            3,
-            carsNowPosition[3][0],
-            carsNowPosition[3][1],
-            carsNowPosition[3][2],
-        ),
-    ];
-    car_0.move(data[0][0] / 1, data[0][1] / 1, 100);
-    car_1.move(data[1][0] / 1, data[1][1] / 1, 100);
-    car_2.move(data[2][0] / 1, data[2][1] / 1, 100);
-    car_3.move(data[3][0] / 1, data[3][1] / 1, 100);
-    carLrsD = [
-        data[0][0],
-        data[0][1],
-        data[1][0],
-        data[1][1],
-        data[2][0],
-        data[2][1],
-        data[3][0],
-        data[3][1],
-    ];
-}, 20);
-
-function move(carNum, nowX, nowY, nowAng) {
-    let nowToNextPointSimpleDist;
-    let speed;
-    if (!carsIsNowInSeparate[carNum]) {
-        let nowToBeforePointSimpleDist = [0, 0];
-        let nowToNextPointDist = 0;
-        let nowToBeforePointDist = 0;
-        let nowToMostNearPositionNumAndDist = [0, 100000];
-
-        //一番近いPointを探す 齟齬確認用
-        for (let i = 0; i < roadPointPositions.length; i++) {
-            const dist = Math.sqrt(
-                (origin_x +
-                    roadPointPositions[i].x * coordinatePerCentimeter -
-                    nowX) **
-                    2 +
-                    (origin_y -
-                        roadPointPositions[i].y * coordinatePerCentimeter -
-                        nowY) **
-                        2,
-            );
-            if (nowToMostNearPositionNumAndDist[1] > dist) {
-                nowToMostNearPositionNumAndDist = [i, dist];
-            }
-        }
-
-        //目標Pointに対するSimpleDistを算出 距離算出用とモータ制御用
-        nowToNextPointSimpleDist = [
-            origin_x +
-                roadPointPositions[carsNowSectionNum[carNum]].x *
-                    coordinatePerCentimeter -
-                nowX,
-            origin_y -
-                roadPointPositions[carsNowSectionNum[carNum]].y *
-                    coordinatePerCentimeter -
-                nowY,
-        ];
-
-        //目標の1つ前のPointに対するSimpleDistを算出
-        let getBeforePointNum;
-        if (carsNowSectionNum[carNum] > 0) {
-            getBeforePointNum = carsNowSectionNum[carNum] - 1;
-        } else {
-            getBeforePointNum = 0;
-        }
-        nowToBeforePointSimpleDist = [
-            origin_x +
-                roadPointPositions[getBeforePointNum].x *
-                    coordinatePerCentimeter -
-                nowX,
-            origin_y -
-                roadPointPositions[getBeforePointNum].y *
-                    coordinatePerCentimeter -
-                nowY,
-        ];
-
-        //目標Pointに対する斜め距離算出
-        nowToNextPointDist = Math.sqrt(
-            nowToNextPointSimpleDist[0] ** 2 + nowToNextPointSimpleDist[1] ** 2,
-        );
-        //目標の1つ前のPointに対する斜め距離算出
-        nowToBeforePointDist = Math.sqrt(
-            nowToBeforePointSimpleDist[0] ** 2 +
-                nowToBeforePointSimpleDist[1] ** 2,
-        );
-
-        //走行セクションと最近ポイントに齟齬が生じた時
+// 車が今どの座標にいるか判定 該当なければ-1 あればセクション番号
+function checkNowSection(x, y) {
+    for (const section in sections) {
         if (
-            nowToNextPointDist > nowToMostNearPositionNumAndDist[1] &&
-            nowToBeforePointDist > nowToMostNearPositionNumAndDist[1]
+            x >= sections[section].LU.x &&
+            x <= sections[section].RU.x &&
+            y >= sections[section].LU.y &&
+            y <= sections[section].LD.y
         ) {
-            console.log("齟齬:" + carNum);
-            //齟齬があれば走行セクション修正
-            //TODO これ多分移行処理しっかりしないと良くない 小澤
-            carsNowSectionNum[carNum] = nowToMostNearPositionNumAndDist[0] + 1;
-        }
-        if (
-            carsNowSectionNum[carNum] <
-            carsNowSectionNum.toSorted((a, b) => {
-                return a - b;
-            })[3]
-        ) {
-            //1周内で先頭でない場合
-            carsSpaceDist[carNum] =
-                carsNowSectionNum.toSorted((a, b) => {
-                    return a - b;
-                })[
-                    carsNowSectionNum
-                        .toSorted((a, b) => {
-                            return a - b;
-                        })
-                        .indexOf(carsNowSectionNum[carNum]) + 1
-                ] - carsNowSectionNum[carNum];
-        } else {
-            //一周内で先頭ではない場合
-            carsSpaceDist[carNum] =
-                roadPointPositions.length -
-                carsNowSectionNum[carNum] +
-                carsNowSectionNum.toSorted((a, b) => {
-                    return a - b;
-                })[0];
-        }
-        let a;
-        if (
-            !(carsNowSectionNum[carNum] <= 10 || carsNowSectionNum[carNum] > 40)
-        ) {
-            a = 12;
-        } else {
-            a = 0;
-        }
-
-        if (carsSpaceDist[carNum] > 20) {
-            //常に先頭の場合をさす
-            console.log("先頭");
-            if (carsNowSectionNum[carNum] <= 1) {
-                //先頭がスタート地点を通れば
-                // nowSeparateCarNum = Math.floor(Math.random() * 4);
-            }
-            speed = 20;
-        } else if (carsSpaceDist[carNum] > 5) {
-            speed = 46;
-        } else if (carsSpaceDist[carNum] > 4) {
-            speed = 34;
-        } else if (carsSpaceDist[carNum] > 3) {
-            speed = 20;
-        } else if (carsSpaceDist[carNum] > 2) {
-            speed = a;
-        } else if (carsSpaceDist[carNum] > 1) {
-            speed = a;
-        } else if (carsSpaceDist[carNum] > 0) {
-            speed = a;
-        } else {
-            speed = a;
-        }
-
-        if (nowToNextPointDist < 10) {
-            //セクション移行処理
-            carsNowSectionNum[carNum]++;
-            if (carsNowSectionNum[carNum] == 5 && nowSeparateCarNum == carNum) {
-                captureOrderBeforeSeparate = 0;
-                for (let i = 0; i < carsNowSectionNum.length; i++) {
-                    if (carsNowSectionNum[i] > 5 && carsNowSectionNum[i] < 30) {
-                        captureOrderBeforeSeparate++;
-                    }
-                }
-                carsIsNowInSeparate[carNum] = true;
-            }
-        }
-        if (carsNowSectionNum[carNum] > roadPointPositions.length - 1) {
-            carsNowSectionNum[carNum] = 0;
-        }
-    } else {
-        nowToNextPointSimpleDist = [
-            origin_x +
-                separateRoadPointPositions[nowSectionNumSeparate].x *
-                    coordinatePerCentimeter -
-                nowX,
-            origin_y -
-                separateRoadPointPositions[nowSectionNumSeparate].y *
-                    coordinatePerCentimeter -
-                nowY,
-        ];
-
-        const nowToNextPointDist = Math.sqrt(
-            nowToNextPointSimpleDist[0] ** 2 + nowToNextPointSimpleDist[1] ** 2,
-        );
-        if (isGo) {
-            speed = 20;
-            // console.log(
-            //     carsNowSectionNum.toSorted((a, b) => {
-            //         return a - b;
-            //     })[2], //2と3の間に割り込む
-            // );
-        } else {
-            speed = 0;
-        }
-        if (nowToNextPointDist < 10 && nowSeparateCarNum == carNum) {
-            isFirstInPoint = false;
-            //セクション移行処理
-            nowSectionNumSeparate++;
-            if (nowSectionNumSeparate > separateRoadPointPositions.length - 1) {
-                console.log("合流完了");
-                //分離終了
-                carsIsNowInSeparate = [false, false, false, false];
-                nowSeparateCarNum = Math.floor(Math.random() * 4);
-                nowSectionNumSeparate = 0;
-                waitTimeContInSeparate = 0;
-                isTrackCont = 0;
-            } else if (
-                nowSectionNumSeparate > 4 &&
-                waitTimeContInSeparate == 0
-            ) {
-                waitTimeContInSeparate = Date.now();
-                isGo = false;
-            } else {
-                isTrackCont++;
-                if (isTrackCont > 6) {
-                    carsNowSectionNum[carNum] = 7 + nowSectionNumSeparate * 2;
-                } else {
-                    carsNowSectionNum[carNum] = 5;
-                }
-                isGo = true;
-            }
-        }
-        let waitTime;
-        if (captureOrderBeforeSeparate == 0) {
-            waitTime = 5000;
-        } else if (captureOrderBeforeSeparate == 1) {
-            waitTime = 4000;
-        } else if (captureOrderBeforeSeparate == 2) {
-            waitTime = 4000; //
-        } else {
-            waitTime = 4000;
-        }
-
-        if (
-            nowSectionNumSeparate > 5 &&
-            0 < Date.now() - waitTimeContInSeparate &&
-            Date.now() - waitTimeContInSeparate < waitTime
-        ) {
-            isGo = false;
-        } else {
-            isGo = true;
+            return section;
         }
     }
-    console.log(carsNowSectionNum);
-    return ctrlLrMotor(nowToNextPointSimpleDist, nowAng, speed);
+    return -1;
 }
 
-let a = 0;
-function ctrlLrMotor(nowToNextPointSimpleDist, nowAng, speed) {
+//車速を決定
+function setSpeed(carNum, isNowInBranch, nowSection, isMerge) {
+    console.log(carsNowDistances);
+    console.log(carsNowSpeeds);
+    //[少ないもんじゅん]でソートする ただし、NaNは配列から排除
+    const sortedDistances = Array.from(carsNowDistances)
+        .filter((value) => !Number.isNaN(value))
+        .sort((a, b) => a - b);
+    // console.log("=====");
+    if (isMerge) {
+        return 30;
+    }
+    if (isNowInBranch) {
+        //分岐中
+        return 20;
+    }
+
+    if (
+        carsNowDistances[carNum] >= sortedDistances[sortedDistances.length - 1]
+    ) {
+        //先頭
+        return 24;
+    } else {
+        //数字が1つ多い、前車両との車間距離を算出
+        let distanceToNextCar =
+            sortedDistances[
+                sortedDistances.indexOf(carsNowDistances[carNum]) + 1
+            ] - carsNowDistances[carNum];
+
+        let speed =
+            (distanceToNextCar - 40) * 0.5 * PGain +
+            ((distanceToNextCar - 40) * 0.5 - carsBeforeSpeeds[carNum]) * DGain;
+        if (speed < 12) {
+            speed = 12;
+        } else if (speed > 30) {
+            speed = 30;
+        }
+        carsBeforeSpeeds[carNum] = speed;
+        return speed;
+        //TODO ここまで秋山領域
+    }
+}
+
+//走行距離算出
+function calcCarsNowDistance(carNum, nowSection, distanceInNowSection) {
+    carsNowDistances[carNum] = 0;
+    //毎回上書きする
+
+    if (!(sections[nowSection].isBranchSection == true && branchCar[carNum])) {
+        //分岐セクション中でなければ
+        //周回アップデート
+        if (
+            beforeSections[carNum] == Object.keys(sections).length - 2 &&
+            nowSection == 0
+        ) {
+            //NOTE 本来はObject.keys(sections).length - 1であるが、分岐セクション(道中)データが1つ挿入されているので,-2している
+            carsNowLaps[carNum]++;
+        }
+        // 1, 周回ごとの走行距離を加算;
+        for (let i = 0; i < carsNowLaps[carNum]; i++) {
+            carsNowDistances[carNum] += 752;
+            //FIXME ちゃんと計算するようにする
+            //今走行中の周回以前
+            // for (const section in sections) {
+            //     console.log("NNNN");
+            //     carsNowDistances[carNum] += sections[section].distance;
+            // }
+        }
+
+        //2, セクションごとの走行距離を加算
+        for (let i = 0; i < nowSection; i++) {
+            //今走行中のセクション以前
+            carsNowDistances[carNum] += sections[i].distance;
+        }
+        //3, セクション内の走行距離を加算
+        carsNowDistances[carNum] += distanceInNowSection;
+
+        //セクション履歴保存
+        beforeSections[carNum] = nowSection;
+    } else {
+        carsNowDistances[carNum] = NaN;
+    }
+}
+
+//分岐線中の走行距離算出
+function calcCarsNowDistanceInBranch(carNum, nowSection, distanceInNowSection) {
+    //これは分岐車両が分岐線中にいるとき発火します
+    carNowDistanceInBranch = 0;
+    //初期化
+    //FIXME ちゃんとする
+    if (nowSection == 1) {
+        //SPLITセクション
+        carNowDistanceInBranch = distanceInNowSection;
+    } else if (nowSection == 10) {
+        //直線セクション
+        carNowDistanceInBranch =
+            sections[1].branch.distance + distanceInNowSection;
+    } else if (nowSection == 5) {
+        //MERGEセクション
+        carNowDistanceInBranch =
+            sections[1].branch.distance +
+            sections[10].branch.distance +
+            distanceInNowSection;
+    }
+}
+
+//ゴーストのインサート
+function insertGhost(carNum) {
+    //これも必ず分岐車両分岐中に発火する
+    if (carNowDistanceInBranch > 80) {
+        let ghostCarDistance = 0;
+        for (let i = 0; i < carsNowLaps[carNum]; i++) {
+            ghostCarDistance += 752;
+            //FIXME ちゃんと計算するようにする
+        }
+        ghostCarDistance += 320;
+        ghostCarDistance += carNowDistanceInBranch;
+        carsNowDistances[carNum] = ghostCarDistance;
+        console.log(carsNowDistances, ghostCarDistance);
+
+        //合流先の、前の車両との距離を算出
+        const sortedDistances = Array.from(carsNowDistances)
+            .filter((value) => !Number.isNaN(value))
+            .sort((a, b) => a - b);
+        let distanceToNextCar =
+            sortedDistances[
+                sortedDistances.indexOf(carsNowDistances[carNum]) + 1
+            ] - carsNowDistances[carNum];
+        console.log(distanceToNextCar);
+        let speed = 18;
+        if (distanceToNextCar < 30) {
+            speed = 0;
+        }
+        return speed;
+    }
+}
+//分岐する車両決定
+function setBranchCar(carNum, nowSection) {
+    const sortedDistances = Array.from(carsNowDistances)
+        .filter((value) => !Number.isNaN(value))
+        .sort((a, b) => a - b);
+    if (
+        nowSection == 0 &&
+        beforeSections[carNum] == Object.keys(sections).length - 2 &&
+        carsNowDistances[carNum] == sortedDistances[sortedDistances.length - 1]
+    ) {
+        //先頭車がセクション0に進入時に、分岐車を決定する
+        //この時点で最後尾の車両が分岐する
+        branchCar = branchCar.fill(false);
+        branchCar[carsNowDistances.indexOf(sortedDistances[0])] = true;
+        //分岐線中の走行距離を初期化
+        carNowDistanceInBranch = 0;
+    }
+}
+
+//車個別処理 メイン
+function move(carNum, nowXYA) {
+    let motorCtrlInputData = [0, 0];
+    //モーター指令に渡すデータ
+    // nowToNextSimpleDist, nowAngle,
+    let motorCtrl = [0, 0];
+    //目標座標と現在座標との距離, 増分(X or Y)
+    const nowToNextIncrement = 20;
+    //走行セクション取得
+    const nowSection = checkNowSection(nowXYA[0], nowXYA[1]);
+    //セクション内の走行距離
+    let distanceInNowSection = 0;
+    //セクション内にいなければ、モーター停止
+    if (nowSection === -1) {
+        return [0, 0];
+    } else {
+        if (sections[nowSection].isBranchSection == true && branchCar[carNum]) {
+            //分岐セクションかつ、分岐する車両であれば
+            if (sections[nowSection].branch.type == "SPLIT") {
+                // 分岐開始
+                //セクション内走行距離
+                //NOTE 発振防ぐため、深く曲がり、オーバーシュートしない用の*0.5
+                //NOTE 走行距離算出時は、長辺を採用する！
+                distanceInNowSection =
+                    sections[nowSection].branch.distance *
+                    ((nowXYA[0] - sections[nowSection].branch.center.x) /
+                        (sections[nowSection].RD.x -
+                            sections[nowSection].branch.center.x));
+                const nextXY = [
+                    nowXYA[0] + nowToNextIncrement,
+                    nowXYA[1] - nowToNextIncrement * 0.8,
+                ];
+                motorCtrlInputData = [
+                    [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                    nowXYA[2],
+                ];
+            } else if (sections[nowSection].branch.type == "MERGE") {
+                // 分岐終了
+                distanceInNowSection =
+                    sections[nowSection].branch.distance *
+                    ((nowXYA[1] - sections[nowSection].branch.center.y) /
+                        (sections[nowSection].LD.y -
+                            sections[nowSection].branch.center.y));
+                const nextXY = [
+                    nowXYA[0] + nowToNextIncrement * 0.9,
+                    nowXYA[1] + nowToNextIncrement,
+                ];
+                motorCtrlInputData = [
+                    [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                    nowXYA[2],
+                ];
+            } else {
+                // 分岐道中
+                distanceInNowSection =
+                    sections[nowSection].branch.distance *
+                    ((nowXYA[0] - sections[nowSection].LD.x) /
+                        (sections[nowSection].RD.x -
+                            sections[nowSection].LD.x));
+                const nextXY = [
+                    nowXYA[0] + nowToNextIncrement,
+                    sections[nowSection].branch.center.y,
+                ];
+                motorCtrlInputData = [
+                    [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                    nowXYA[2],
+                ];
+            }
+        } else if (sections[nowSection].direction === "UP") {
+            //進行方向UPであれば
+            //セクション内走行距離
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((sections[nowSection].LD.y - nowXYA[1]) /
+                    (sections[nowSection].LD.y - sections[nowSection].LU.y));
+            const nextXY = [
+                sections[nowSection].center.x,
+                nowXYA[1] - nowToNextIncrement,
+            ];
+            //モーター指令
+            motorCtrlInputData = [
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+            ];
+        } else if (sections[nowSection].direction === "RIGHTUP") {
+            //進行方向RIGHTUPであれば
+            //セクション内走行距離
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((nowXYA[0] - sections[nowSection].center.x) /
+                    (sections[nowSection].RD.x -
+                        sections[nowSection].center.x));
+            //NOTE 発振防ぐため、深く曲がり、オーバーシュートしない用の*0.5
+            //NOTE 走行距離算出時は、長辺を採用する！
+            const nextXY = [
+                nowXYA[0] + nowToNextIncrement,
+                nowXYA[1] - nowToNextIncrement * 0.5,
+            ];
+            motorCtrlInputData = [
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+            ];
+        } else if (sections[nowSection].direction === "RIGHT") {
+            //進行方向RIGHTであれば
+            //セクション内走行距離
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((nowXYA[0] - sections[nowSection].LD.x) /
+                    (sections[nowSection].RD.x - sections[nowSection].LD.x));
+            const nextXY = [
+                nowXYA[0] + nowToNextIncrement,
+                sections[nowSection].center.y,
+            ];
+            motorCtrlInputData = [
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+            ];
+        } else if (sections[nowSection].direction === "RIGHTDN") {
+            //進行方向RIGHTDNであれば
+            //セクション内走行距離
+            const nextXY = [
+                nowXYA[0] + nowToNextIncrement * 0.5,
+                nowXYA[1] + nowToNextIncrement,
+            ];
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((nowXYA[1] - sections[nowSection].center.y) /
+                    (sections[nowSection].LD.y -
+                        sections[nowSection].center.y));
+            motorCtrlInputData = [
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+            ];
+        } else if (sections[nowSection].direction === "DOWN") {
+            //進行方向DOWNであれば
+            //セクション内走行距離
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((nowXYA[1] - sections[nowSection].LU.y) /
+                    (sections[nowSection].LD.y - sections[nowSection].LU.y));
+            const nextXY = [
+                sections[nowSection].center.x,
+                nowXYA[1] + nowToNextIncrement,
+            ];
+            motorCtrlInputData = [
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+            ];
+        } else if (sections[nowSection].direction === "LEFTDN") {
+            //進行方向LEFTDNであれば
+            //セクション内走行距離
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((sections[nowSection].center.x - nowXYA[0]) /
+                    (sections[nowSection].center.x -
+                        sections[nowSection].LD.x));
+            const nextXY = [
+                nowXYA[0] - nowToNextIncrement,
+                nowXYA[1] + nowToNextIncrement * 0.5,
+            ];
+            motorCtrlInputData = [
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+            ];
+        } else if (sections[nowSection].direction === "LEFT") {
+            //進行方向LEFTであれば
+            //セクション内走行距離
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((sections[nowSection].RD.x - nowXYA[0]) /
+                    (sections[nowSection].RD.x - sections[nowSection].LD.x));
+            const nextXY = [
+                nowXYA[0] - nowToNextIncrement,
+                sections[nowSection].center.y,
+            ];
+            motorCtrlInputData = [
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+            ];
+        } else if (sections[nowSection].direction === "LEFTUP") {
+            //進行方向LEFTUPであれば
+            //セクション内走行距離
+            distanceInNowSection =
+                sections[nowSection].distance *
+                ((sections[nowSection].center.y - nowXYA[1]) /
+                    (sections[nowSection].center.y -
+                        sections[nowSection].LU.y));
+            const nextXY = [
+                nowXYA[0] - nowToNextIncrement * 0.5,
+                nowXYA[1] - nowToNextIncrement,
+            ];
+            motorCtrlInputData = [
+                [nextXY[0] - nowXYA[0], nextXY[1] - nowXYA[1]],
+                nowXYA[2],
+            ];
+        }
+    }
+
+    //分岐車両決定
+    setBranchCar(carNum, nowSection);
+
+    //走行距離算出
+    calcCarsNowDistance(carNum, nowSection, distanceInNowSection);
+    let isMerge = false;
+    let isNowInBranch = false;
+    let spd;
+    //分岐中であれば
+    if (Number.isNaN(carsNowDistances[carNum])) {
+        //分岐中の走行距離算出
+        calcCarsNowDistanceInBranch(carNum, nowSection, distanceInNowSection);
+        //ゴーストのインサート
+        spd = insertGhost(carNum);
+        isNowInBranch = true;
+    }
+    if (sections[nowSection].isBranchSection == true && branchCar[carNum]) {
+        if (sections[nowSection].branch.type == "MERGE") {
+            isMerge = true;
+        }
+    }
+    //速度決定
+    if (spd == undefined) {
+        motorCtrl = ctrlMotor(
+            motorCtrlInputData[0],
+            motorCtrlInputData[1],
+            setSpeed(carNum, isNowInBranch, nowSection, isMerge),
+        );
+    } else {
+        motorCtrl = ctrlMotor(
+            motorCtrlInputData[0],
+            motorCtrlInputData[1],
+            spd,
+        );
+    }
+    return motorCtrl;
+}
+
+let beforeRatio = 0;
+function ctrlMotor(nowToNextSimpleDist, nowA, speed) {
     let relAngle =
-        (Math.atan2(nowToNextPointSimpleDist[1], nowToNextPointSimpleDist[0]) *
-            180) /
+        (Math.atan2(nowToNextSimpleDist[1], nowToNextSimpleDist[0]) * 180) /
             Math.PI -
-        nowAng;
+        nowA;
     relAngle = relAngle % 360;
     if (relAngle < -180) {
         relAngle += 360;
@@ -408,10 +571,70 @@ function ctrlLrMotor(nowToNextPointSimpleDist, nowAng, speed) {
         relAngle -= 360;
     }
     const ratio = 1 - Math.abs(relAngle) / 90;
-    a = ratio;
+
+    beforeRatio = ratio;
     if (relAngle > 0) {
-        return [speed, speed * (ratio + (a - ratio) * 40)];
+        return [speed, speed * (ratio + (beforeRatio - ratio) * 40)];
     } else {
-        return [speed * (ratio + (a - ratio) * 40), speed];
+        return [speed * (ratio + (beforeRatio - ratio) * 40), speed];
     }
 }
+
+const cubes = await new NearScanner(4).start();
+const car0 = await cubes[0].connect();
+const car1 = await cubes[1].connect();
+const car2 = await cubes[2].connect();
+const car3 = await cubes[3].connect();
+
+let car0XYA = [0, 0, 0];
+let car1XYA = [0, 0, 0];
+let car2XYA = [0, 0, 0];
+let car3XYA = [0, 0, 0];
+
+async function main() {
+    let isPressed = false;
+    let isPlaying = false;
+    let buttonPressInterval = 0;
+    car0.on("button:press", () => {
+        isPressed = true;
+    });
+    car1.on("button:press", () => {
+        isPressed = true;
+    });
+    car2.on("button:press", () => {
+        isPressed = true;
+    });
+    car3.on("button:press", () => {
+        isPressed = true;
+    });
+
+    car0.on("id:position-id", (data) => {
+        car0XYA = [data.x, data.y, data.angle];
+    });
+    car1.on("id:position-id", (data) => {
+        car1XYA = [data.x, data.y, data.angle];
+    });
+    car2.on("id:position-id", (data) => {
+        car2XYA = [data.x, data.y, data.angle];
+    });
+    car3.on("id:position-id", (data) => {
+        car3XYA = [data.x, data.y, data.angle];
+    });
+
+    setInterval(() => {
+        buttonPressInterval += 1;
+        if (isPressed && buttonPressInterval > 40) {
+            isPlaying = !isPlaying;
+            buttonPressInterval = 0;
+        }
+        isPressed = false;
+
+        if (isPlaying) {
+            car0.move(...move(0, car0XYA), 100);
+            car1.move(...move(1, car1XYA), 100);
+            car2.move(...move(2, car2XYA), 100);
+            car3.move(...move(3, car3XYA), 100);
+        }
+    }, 50);
+}
+main();
