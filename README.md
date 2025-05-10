@@ -2,7 +2,7 @@
 #### Creation and demonstration of a future transportation system to relieve traffic congestion<br>
 #### 渋滞解消を目的とした未来の交通システムの開発<br><br>
 ##
-メインコード=> main/main.js
+**メインコード=> main/main.js**
 ##
 ![Image](https://github.com/user-attachments/assets/a6b30e61-caad-4b04-a613-99f697ba96a9)
 ![Image](https://github.com/user-attachments/assets/add5bc6a-2331-4d7a-a099-19eb12cd219d)
